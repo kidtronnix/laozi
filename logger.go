@@ -27,13 +27,13 @@ type s3logger struct {
 	active time.Time
 }
 
-// Log adds receives data for archiving
-func (l *s3logger) Log(b []byte) {
-	l.buffer.Write(b)
+// Log causes event event to br written to internal memory buffer.
+func (l *s3logger) Log(e []byte) {
+	l.buffer.Write(e)
 	l.active = time.Now()
 }
 
-// will cause bytes to be written to s3
+// Close is called when logger timeouts. Will cause internal memory buffer to be written to s3.
 func (l *s3logger) Close() error {
 
 	// b is a buffer where we put bytes to and read bytes from
@@ -67,6 +67,7 @@ func (l *s3logger) Close() error {
 	return err
 }
 
+// LastActive is used to know when the S3Logger last logged.
 func (l *s3logger) LastActive() time.Time {
 	return l.active
 }

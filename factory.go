@@ -17,12 +17,14 @@ type LoggerFactory interface {
 	NewLogger(key string) Logger
 }
 
+// S3LoggerFactory is a logger factory for creating loggers that log received events to S3.
 type S3LoggerFactory struct {
 	Prefix string
 	Bucket string
 	Region string
 }
 
+// NewLogger return a new instance of an S3 Logger for a corresponding partition key.
 func (lf S3LoggerFactory) NewLogger(key string) Logger {
 	l := &s3logger{
 		bucket: lf.Bucket,

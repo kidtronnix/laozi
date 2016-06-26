@@ -9,7 +9,7 @@ import (
 
 // Laozi is an archiver responsible for receiving events and archiving them to
 // a safe, reliable storage. Currently it achieves this by implementing s3 storage.
-// It is named after the most famous archivist in the world, https://en.wikipedia.org/wiki/Laozi
+// It is named after one of the most famous archivists in the world, https://en.wikipedia.org/wiki/Laozi
 type Laozi interface {
 	Log([]byte)
 	Close()
@@ -22,6 +22,7 @@ type laozi struct {
 	*Config
 }
 
+// Config is a struct used to configure Laozi to your implementation.
 type Config struct {
 	LoggerFactory    LoggerFactory
 	LoggerTimeout    time.Duration
@@ -70,9 +71,8 @@ func (r *laozi) Close() {
 	}
 }
 
-// Route listen to the log impression line on the RoutingChan,
-// get the uuid and routes the impression log to the correct Logger.
-// It creates the Logger if needed
+// route listens to the EventChan for events and routes them to their according logger
+// using the implemented partition key function.
 func (r *laozi) route() {
 	for e := range r.EventChan {
 
@@ -94,6 +94,7 @@ func (r *laozi) route() {
 	}
 }
 
+// monitorLoggers will periodicall check the internal map and delete stale loggers.
 func (r *laozi) monitorLoggers() {
 	for _ = range time.Tick(r.LoggerTimeout / 2) {
 		r.Lock()
