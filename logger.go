@@ -11,11 +11,16 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
-const MaxRetries = 10
+const maxRetries = 10
 
+// Logger defines the behaviour of all loggers.
 type Logger interface {
+	// send event data
 	Log([]byte)
+	// Close method called before it removed from internal map
 	Close() error
+	// LastActive is used to get the time a logger last logged. Used for deleting stale
+	// loggers from internal map.
 	LastActive() time.Time
 }
 
@@ -47,7 +52,7 @@ func (l *s3logger) Close() error {
 
 	var err error
 	// retry write to s3 for max tries
-	for i := 0; i < MaxRetries; i++ {
+	for i := 0; i < maxRetries; i++ {
 		_, err = l.S3.PutObject(&s3.PutObjectInput{
 			Bucket: aws.String(l.bucket),
 			Key:    aws.String(l.key),
@@ -72,6 +77,7 @@ func (l *s3logger) LastActive() time.Time {
 	return l.active
 }
 
+// fetchPreviousData will go fetch any previous data stored on s3 for a corresponding key
 func (l *s3logger) fetchPreviousData() {
 	resp, err := l.S3.GetObject(&s3.GetObjectInput{
 		Bucket: aws.String(l.bucket),
