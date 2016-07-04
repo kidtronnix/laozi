@@ -1,6 +1,8 @@
 ## laozi
 
-archiver of truths.
+[![GoDoc](https://godoc.org/github.com/seedboxtech/laozi?status.svg)](https://godoc.org/github.com/seedboxtech/laozi)
+
+archiver of events.
 
 stores events to s3 partitioned however you want. imagine AWS firehose service but with a
 configurable partition method.

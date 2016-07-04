@@ -1,3 +1,6 @@
+// Package laozi is an archiver of events.
+// stores events to s3 partitioned however you want. imagine AWS firehose service but with a
+// configurable partition method.
 package laozi
 
 import (
@@ -94,7 +97,7 @@ func (r *laozi) route() {
 	}
 }
 
-// monitorLoggers will periodicall check the internal map and delete stale loggers.
+// monitorLoggers will periodically check the internal map and delete stale loggers.
 func (r *laozi) monitorLoggers() {
 	for _ = range time.Tick(r.LoggerTimeout / 2) {
 		r.Lock()
