@@ -25,22 +25,45 @@ type Logger interface {
 }
 
 type s3logger struct {
-	S3     *s3.S3
-	bucket string
-	key    string
-	buffer *bytes.Buffer
-	active time.Time
+	S3        *s3.S3
+	bucket    string
+	key       string
+	buffer    *bytes.Buffer
+	active    time.Time
+	logChan   chan []byte
+	flushChan <-chan time.Time
+	quitChan  chan struct{}
 }
 
 // Log causes event event to br written to internal memory buffer.
 func (l *s3logger) Log(e []byte) {
-	l.buffer.Write(e)
+	l.logChan <- e
 	l.active = time.Now()
+}
+
+func (l *s3logger) loop() {
+	for {
+		select {
+		case <-l.flushChan:
+			l.flush()
+		case e := <-l.logChan:
+			l.buffer.Write(e)
+		case <-l.quitChan:
+			return
+		default:
+			// chill out for a moment...
+			time.Sleep(time.Millisecond)
+		}
+	}
 }
 
 // Close is called when logger timeouts. Will cause internal memory buffer to be written to s3.
 func (l *s3logger) Close() error {
+	l.quitChan <- struct{}{}
+	return l.flush()
+}
 
+func (l *s3logger) flush() error {
 	// b is a buffer where we put bytes to and read bytes from
 	var b bytes.Buffer
 	// make a gzip writer that can write to buffer

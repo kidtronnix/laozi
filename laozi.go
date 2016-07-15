@@ -3,11 +3,11 @@
 // configurable partition method.
 package laozi
 
-import (
+import(
+	"time"
+	"sync"
 	"fmt"
 	"log"
-	"sync"
-	"time"
 )
 
 // Laozi is an archiver responsible for receiving events and archiving them to

@@ -19,22 +19,26 @@ type LoggerFactory interface {
 
 // S3LoggerFactory is a logger factory for creating loggers that log received events to S3.
 type S3LoggerFactory struct {
-	Prefix string
-	Bucket string
-	Region string
+	Prefix        string
+	Bucket        string
+	Region        string
+	FlushInterval time.Duration
 }
 
 // NewLogger return a new instance of an S3 Logger for a corresponding partition key.
 func (lf S3LoggerFactory) NewLogger(key string) Logger {
 	l := &s3logger{
-		bucket: lf.Bucket,
-		key:    fmt.Sprintf("%s%s", lf.Prefix, key),
-		S3:     s3.New(session.New(), &aws.Config{Region: aws.String(lf.Region)}),
-		buffer: bytes.NewBuffer([]byte{}),
-		active: time.Now(),
+		bucket:    lf.Bucket,
+		key:       fmt.Sprintf("%s%s", lf.Prefix, key),
+		S3:        s3.New(session.New(), &aws.Config{Region: aws.String(lf.Region)}),
+		buffer:    bytes.NewBuffer([]byte{}),
+		active:    time.Now(),
+		logChan:   make(chan []byte),
+		quitChan:  make(chan struct{}),
+		flushChan: time.Tick(lf.FlushInterval),
 	}
-
 	l.fetchPreviousData()
+	go l.loop()
 
 	return l
 

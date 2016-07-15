@@ -9,10 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
 )
 
 func init() {
@@ -28,11 +29,14 @@ func makeS3Service() *s3.S3 {
 
 func makeTestLogger() *s3logger {
 	return &s3logger{
-		bucket: testBucket,
-		key:    testFile,
-		S3:     makeS3Service(),
-		buffer: bytes.NewBuffer([]byte{}),
-		active: time.Now(),
+		bucket:    testBucket,
+		key:       testFile,
+		S3:        makeS3Service(),
+		buffer:    bytes.NewBuffer([]byte{}),
+		active:    time.Now(),
+		logChan:   make(chan []byte, 1),
+		quitChan:  make(chan struct{}, 1),
+		flushChan: make(<-chan time.Time),
 	}
 }
 
@@ -74,7 +78,8 @@ func TestS3LoggerLog(t *testing.T) {
 	l := makeTestLogger()
 	testData := []byte("some data")
 	l.Log(testData)
-	assert.Equal(testData, l.buffer.Bytes())
+
+	assert.Equal(testData, <-l.logChan)
 
 	assert.WithinDuration(time.Now(), l.active, time.Millisecond)
 }
@@ -147,5 +152,55 @@ func TestS3LoggerFetchesPreviousData(t *testing.T) {
 	l.fetchPreviousData()
 
 	assert.Equal(testData, l.buffer.Bytes())
+
+}
+
+func TestLoopLogsEvent(t *testing.T) {
+	assert := assert.New(t)
+
+	testData := []byte("test data")
+	l := makeTestLogger()
+
+	go l.loop()
+
+	l.logChan <- testData
+
+	time.Sleep(time.Millisecond * 5)
+
+	assert.Equal(testData, l.buffer.Bytes())
+
+}
+
+func TestLoopFlushes(t *testing.T) {
+	assert := assert.New(t)
+
+	makeTestBucket()
+	defer detroyTestBucket()
+
+	testData := []byte("test data")
+	l := makeTestLogger()
+	l.buffer.Write(testData)
+	go l.loop()
+	l.flushChan = time.After(time.Millisecond)
+
+	// this needs to be long enough for file to write to s3
+	time.Sleep(time.Second * 5)
+
+	// do a read test to check
+	resp, err := l.S3.GetObject(&s3.GetObjectInput{
+		Bucket: aws.String(l.bucket),
+		Key:    aws.String(l.key),
+	})
+	assert.NoError(err)
+
+	bs, err := ioutil.ReadAll(resp.Body)
+	assert.NoError(err)
+
+	var b bytes.Buffer
+	w := gzip.NewWriter(&b)
+	w.Write(testData)
+	w.Close()
+
+	assert.Equal(b.Bytes(), bs)
 
 }
