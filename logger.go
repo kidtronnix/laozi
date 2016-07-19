@@ -25,14 +25,14 @@ type Logger interface {
 }
 
 type s3logger struct {
-	S3        *s3.S3
-	bucket    string
-	key       string
-	buffer    *bytes.Buffer
-	active    time.Time
-	logChan   chan []byte
-	flushChan <-chan time.Time
-	quitChan  chan struct{}
+	S3          *s3.S3
+	bucket      string
+	key         string
+	buffer      *bytes.Buffer
+	active      time.Time
+	logChan     chan []byte
+	flushTicker *time.Ticker
+	quitChan    chan struct{}
 }
 
 // Log causes event event to br written to internal memory buffer.
@@ -42,13 +42,15 @@ func (l *s3logger) Log(e []byte) {
 }
 
 func (l *s3logger) loop() {
+	var event []byte
 	for {
 		select {
-		case <-l.flushChan:
+		case <-l.flushTicker.C:
 			l.flush()
-		case e := <-l.logChan:
-			l.buffer.Write(e)
+		case event = <-l.logChan:
+			l.buffer.Write(event)
 		case <-l.quitChan:
+			l.flushTicker.Stop()
 			return
 		default:
 			// chill out for a moment...

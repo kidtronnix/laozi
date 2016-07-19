@@ -40,7 +40,7 @@ loop:
 	fmt.Println("Done logging!")
 	fmt.Println(" - logged:", i)
 
-	// give some time for the final flush to happen
+	// give some time for the final flush to happenx
 	<-time.After(2 * time.Minute)
 
 }

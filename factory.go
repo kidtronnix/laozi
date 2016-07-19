@@ -28,14 +28,14 @@ type S3LoggerFactory struct {
 // NewLogger return a new instance of an S3 Logger for a corresponding partition key.
 func (lf S3LoggerFactory) NewLogger(key string) Logger {
 	l := &s3logger{
-		bucket:    lf.Bucket,
-		key:       fmt.Sprintf("%s%s", lf.Prefix, key),
-		S3:        s3.New(session.New(), &aws.Config{Region: aws.String(lf.Region)}),
-		buffer:    bytes.NewBuffer([]byte{}),
-		active:    time.Now(),
-		logChan:   make(chan []byte),
-		quitChan:  make(chan struct{}),
-		flushChan: time.Tick(lf.FlushInterval),
+		bucket:      lf.Bucket,
+		key:         fmt.Sprintf("%s%s", lf.Prefix, key),
+		S3:          s3.New(session.New(), &aws.Config{Region: aws.String(lf.Region)}),
+		buffer:      bytes.NewBuffer([]byte{}),
+		active:      time.Now(),
+		logChan:     make(chan []byte),
+		quitChan:    make(chan struct{}),
+		flushTicker: time.NewTicker(lf.FlushInterval),
 	}
 	l.fetchPreviousData()
 	go l.loop()
