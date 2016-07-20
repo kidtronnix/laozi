@@ -3,11 +3,11 @@
 // configurable partition method.
 package laozi
 
-import(
-	"time"
-	"sync"
+import (
 	"fmt"
 	"log"
+	"sync"
+	"time"
 )
 
 // Laozi is an archiver responsible for receiving events and archiving them to
@@ -69,7 +69,7 @@ func (r *laozi) Close() {
 	for key, l := range r.routingMap {
 		err := l.Close()
 		if err != nil {
-			fmt.Printf(" [router] Error! Could not close logger (possible data loss): %s\n", key)
+			fmt.Printf(" [laozi] Error! Could not close logger (possible data loss): %s\n", key)
 		}
 	}
 }
@@ -103,7 +103,7 @@ func (r *laozi) monitorLoggers() {
 		r.Lock()
 		for key, l := range r.routingMap {
 			if time.Since(l.LastActive()) >= r.LoggerTimeout {
-				log.Printf("- [router] Logger timeout: %s\n", key)
+				log.Printf("- [laozi] Logger timeout: %s\n", key)
 				l.Close()
 				delete(r.routingMap, key)
 			}

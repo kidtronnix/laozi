@@ -10,9 +10,10 @@ func TestLoggerFactoryNew(t *testing.T) {
 	assert := assert.New(t)
 
 	lf := S3LoggerFactory{
-		Bucket: "bucket",
-		Prefix: "prefix/",
-		Region: "us-east-1",
+		Bucket:        "bucket",
+		Prefix:        "prefix/",
+		Region:        "us-east-1",
+		FlushInterval: 100,
 	}
 
 	l := lf.NewLogger("test.file")

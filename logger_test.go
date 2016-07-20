@@ -29,14 +29,15 @@ func makeS3Service() *s3.S3 {
 
 func makeTestLogger() *s3logger {
 	return &s3logger{
-		bucket:      testBucket,
-		key:         testFile,
-		S3:          makeS3Service(),
-		buffer:      bytes.NewBuffer([]byte{}),
-		active:      time.Now(),
-		logChan:     make(chan []byte, 1),
-		quitChan:    make(chan struct{}, 1),
-		flushTicker: time.NewTicker(time.Hour),
+		bucket:        testBucket,
+		key:           testFile,
+		S3:            makeS3Service(),
+		buffer:        bytes.NewBuffer([]byte{}),
+		active:        time.Now(),
+		logChan:       make(chan []byte, 1),
+		quitChan:      make(chan struct{}, 1),
+		flushInterval: time.Hour,
+		compression:   "gzip",
 	}
 }
 
@@ -181,7 +182,7 @@ func TestLoopFlushes(t *testing.T) {
 	l := makeTestLogger()
 	l.buffer.Write(testData)
 	go l.loop()
-	l.flushTicker = time.NewTicker(time.Millisecond)
+	l.flushInterval = time.Millisecond
 
 	// this needs to be long enough for file to write to s3
 	time.Sleep(time.Second * 5)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"time"
 
@@ -25,14 +26,15 @@ type Logger interface {
 }
 
 type s3logger struct {
-	S3          *s3.S3
-	bucket      string
-	key         string
-	buffer      *bytes.Buffer
-	active      time.Time
-	logChan     chan []byte
-	flushTicker *time.Ticker
-	quitChan    chan struct{}
+	S3            *s3.S3
+	bucket        string
+	key           string
+	buffer        *bytes.Buffer
+	active        time.Time
+	logChan       chan []byte
+	flushInterval time.Duration
+	quitChan      chan struct{}
+	compression   string
 }
 
 // Log causes event event to br written to internal memory buffer.
@@ -42,15 +44,22 @@ func (l *s3logger) Log(e []byte) {
 }
 
 func (l *s3logger) loop() {
+	var flushChan <-chan time.Time
+	if l.flushInterval > 0 {
+		flushChan = time.After(l.flushInterval)
+	}
+
 	var event []byte
 	for {
 		select {
-		case <-l.flushTicker.C:
+		case <-flushChan:
 			l.flush()
+			if l.flushInterval > 0 {
+				flushChan = time.After(l.flushInterval)
+			}
 		case event = <-l.logChan:
 			l.buffer.Write(event)
 		case <-l.quitChan:
-			l.flushTicker.Stop()
 			return
 		default:
 			// chill out for a moment...
@@ -65,15 +74,36 @@ func (l *s3logger) Close() error {
 	return l.flush()
 }
 
+func (l *s3logger) compressBuffer() (bs []byte) {
+
+	switch l.compression {
+	case "gzip":
+		var b bytes.Buffer
+		w := gzip.NewWriter(&b)
+		w.Write(l.buffer.Bytes())
+		w.Close()
+		bs = b.Bytes()
+	case "":
+		bs = l.buffer.Bytes()
+	}
+	return
+}
+
+func (l *s3logger) decompressToBuffer(r io.ReadCloser) {
+
+	switch l.compression {
+	case "gzip":
+		gr, _ := gzip.NewReader(r)
+		b, _ := ioutil.ReadAll(gr)
+		l.buffer.Write(b)
+	case "":
+		b, _ := ioutil.ReadAll(r)
+		l.buffer.Write(b)
+	}
+	return
+}
+
 func (l *s3logger) flush() error {
-	// b is a buffer where we put bytes to and read bytes from
-	var b bytes.Buffer
-	// make a gzip writer that can write to buffer
-	w := gzip.NewWriter(&b)
-	// dump contents of loggers
-	w.Write(l.buffer.Bytes())
-	// gzip needs to be closed as it's compression can only run at the end
-	w.Close()
 
 	var err error
 	// retry write to s3 for max tries
@@ -81,7 +111,7 @@ func (l *s3logger) flush() error {
 		_, err = l.S3.PutObject(&s3.PutObjectInput{
 			Bucket: aws.String(l.bucket),
 			Key:    aws.String(l.key),
-			Body:   bytes.NewReader(b.Bytes()),
+			Body:   bytes.NewReader(l.compressBuffer()),
 		})
 
 		if err == nil {
@@ -115,8 +145,6 @@ func (l *s3logger) fetchPreviousData() {
 	}
 
 	if resp.Body != nil {
-		gr, _ := gzip.NewReader(resp.Body)
-		b, _ := ioutil.ReadAll(gr)
-		l.buffer.Write(b)
+		l.decompressToBuffer(resp.Body)
 	}
 }

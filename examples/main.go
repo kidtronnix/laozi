@@ -10,10 +10,10 @@ import (
 func main() {
 	l := laozi.NewLaozi(&laozi.Config{
 		LoggerFactory: laozi.S3LoggerFactory{
-			Bucket:        "laozi-test",
-			Prefix:        "events/", // optional
-			Region:        "us-east-1",
-			FlushInterval: time.Second * 30,
+			Bucket: "laozi-test",
+			Prefix: "events/", // optional
+			Region: "us-east-1",
+			// FlushInterval: time.Second * 30, // optional
 		},
 		EventChannelSize: 10000000,
 		LoggerTimeout:    time.Minute,
