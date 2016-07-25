@@ -64,7 +64,8 @@ func (r *laozi) Log(e []byte) {
 	r.EventChan <- e
 }
 
-// Close must be called whenever process terminates. This ensure all loggers have flushed their state.
+// Close must be called whenever process terminates.
+// This ensure all loggers have flushed their state.
 func (r *laozi) Close() {
 	for key, l := range r.routingMap {
 		err := l.Close()
