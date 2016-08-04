@@ -12,34 +12,52 @@ configurable partition method.
 ```go
 package main
 
-import "github.com/seedboxtech/laozi"
+import (
+	"fmt"
+	"time"
+
+	laozi "github.com/seedboxtech/laozi"
+)
 
 func main() {
-  // create a new laozi instance
-  l := laozi.NewLaozi(&loazi.Config{
-    // LoggerFactory is a factory that will generate new loggers as they are needed.
-    // each new logger is passed the partition key it is responsible for logging data for.
-    LoggerFactory: loazi.S3LoggerFactory{
-      Bucket: "my-s3-bucket",
-      Prefix: "events/", // optional
-      Region: "us-east-1",
-    },
-    // EventChanSize is the buffer size of the event channel
-    EventChanSize: 10000,
-     // LoggerTimeout is the timeout to wait for logger to be inactive before it's `Close` method is called
-    LoggerTimeout: time.Minute,
-    // PartitionKeyFunc is a func you must implement to extract a key a logged data point
-    PartitionKeyFunc: func(e []byte) (string, error) {
-      // in this example we use the first value in a comma seperated list of values as the partition key
-      parts := bytes.Split(e, []byte(","))
-      return fmt.Sprintf("%s", parts[0]), nil
-    },
-  })
+	l := laozi.NewLaozi(&laozi.Config{
+		LoggerFactory: laozi.S3LoggerFactory{
+			Bucket: "laozi-test",
+			Region: "us-east-1",
+			Prefix: "events/", // optional
+			FlushInterval: time.Second * 30, // optional
+			Compression: "gzip", // optional
+		},
+		EventChannelSize: 10000000,
+		LoggerTimeout:    time.Minute,
+		PartitionKeyFunc: func(e []byte) (string, error) {
+			return "event-file.csv.gz", nil
+		},
+	})
 
-  // tell loazi about your event, function is totally non-blocking internally
-  // so no waiting around for event to be processed.
-  l.Log([]byte("key,some data to store line by line\n"))
+	quit := time.After(2 * time.Minute)
+	i := 0
+loop:
+	for {
+		select {
+		case <-quit:
+			break loop
+		default:
+			i++
+			l.Log([]byte(fmt.Sprintf("%d\n", i)))
+			time.Sleep(time.Millisecond)
+
+		}
+	}
+
+	fmt.Println("Done logging!")
+	fmt.Println(" - logged:", i)
+
+	// give some time for the final flush to happenx
+	<-time.After(2 * time.Minute)
+
 }
+
 
 ```
 
