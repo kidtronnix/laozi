@@ -24,6 +24,7 @@ type S3LoggerFactory struct {
 	Region        string
 	FlushInterval time.Duration
 	Compression   string
+	IsDupeFunc    func(event []byte, line []byte) bool
 }
 
 // NewLogger return a new instance of an S3 Logger for a corresponding partition key.
@@ -41,8 +42,15 @@ func (lf S3LoggerFactory) NewLogger(key string) Logger {
 	}
 
 	l.fetchPreviousData()
-	go l.loop()
 
-	return l
+	// added deduplication wrapper if function is specified
+	if lf.IsDupeFunc == nil {
+		go l.loop()
+		return l
+	} else {
+		dl := &dedupeS3Logger{l, lf.IsDupeFunc}
+		go dl.loop()
+		return dl
+	}
 
 }

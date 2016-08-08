@@ -14,6 +14,10 @@ import (
 
 const maxRetries = 10
 
+type logger interface {
+	loop()
+}
+
 // Logger defines the behaviour of all loggers.
 type Logger interface {
 	// send event data

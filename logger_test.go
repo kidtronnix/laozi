@@ -18,9 +18,14 @@ import (
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
+	testBucket = fmt.Sprintf("LOAZI_TEST_BUCKET_%d", rand.Intn(123435))
 }
 
-var testBucket = fmt.Sprintf("LOAZI_TEST_BUCKET_%d", rand.Intn(123435))
+func tb() string {
+	return fmt.Sprintf("LOAZI_TEST_BUCKET_%d", rand.Intn(123435))
+}
+
+var testBucket string
 var testFile = "TEST_LOGGER_FILE.gz"
 
 func makeS3Service() *s3.S3 {
@@ -28,13 +33,14 @@ func makeS3Service() *s3.S3 {
 }
 
 func makeTestLogger() *s3logger {
+
 	return &s3logger{
 		bucket:        testBucket,
 		key:           testFile,
 		S3:            makeS3Service(),
 		buffer:        bytes.NewBuffer([]byte{}),
 		active:        time.Now(),
-		logChan:       make(chan []byte, 1),
+		logChan:       make(chan []byte, 10),
 		quitChan:      make(chan struct{}, 1),
 		flushInterval: time.Hour,
 		compression:   "gzip",
@@ -42,7 +48,6 @@ func makeTestLogger() *s3logger {
 }
 
 func makeTestBucket() {
-
 	svc := makeS3Service()
 	// create test bucket
 	_, err := svc.CreateBucket(&s3.CreateBucketInput{
@@ -55,7 +60,6 @@ func makeTestBucket() {
 }
 
 func detroyTestBucket() {
-
 	svc := makeS3Service()
 
 	svc.DeleteObject(&s3.DeleteObjectInput{
@@ -165,11 +169,11 @@ func TestLoopLogsEvent(t *testing.T) {
 	go l.loop()
 
 	l.logChan <- testData
+	l.logChan <- testData
 
 	time.Sleep(time.Millisecond * 5)
 
-	assert.Equal(testData, l.buffer.Bytes())
-
+	assert.Equal([]byte("test datatest data"), l.buffer.Bytes())
 }
 
 func TestLoopFlushes(t *testing.T) {
