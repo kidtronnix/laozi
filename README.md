@@ -27,6 +27,10 @@ func main() {
 			Prefix: "events/", // optional
 			FlushInterval: time.Second * 30, // optional
 			Compression: "gzip", // optional
+			IsDupeFunc: func(event []byte, line []byte) bool {
+				// implement some method of checking for duplicates
+				return string(event) == string(line)
+			}
 		},
 		EventChannelSize: 10000000,
 		LoggerTimeout:    time.Minute,
